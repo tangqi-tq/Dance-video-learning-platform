@@ -7,9 +7,9 @@
 一个基于 Python + PyQt5 开发的桌面端舞蹈教学管理平台。本项目由经典的“名片管理系统”升级扩展而来，集成了学员管理、课程管理、视频教学、学习追踪和作业提交批改等核心功能，旨在帮助舞蹈培训机构实现数字化、信息化的教学管理。
 
 ## 📸 界面预览
-![学员管理主界面](docs/images/main.png)
-![视频管理界面](docs/images/video_manage.png)
-![作业评分界面](docs/images/grading.png)
+![学员管理界面](business_card/docs/images/main.png)
+![视频管理界面](business_card/docs/images/video_manage.png)
+![作业评分界面](business_card/docs/images/grading.png)
 
 
 ## ✨ 功能特性
