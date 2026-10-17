@@ -1,0 +1,33 @@
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# Python 编译缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 测试视频文件（避免泄露隐私和占用空间）
+assignments_videos/
+*.mp4
+
+# 真实配置文件（隐藏密码）
+config.py
+.env
+
+# 系统或编辑器生成的文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 日志和本地数据库
+*.log
+*.sqlite3
+*.db
+
+# 忽略本地数据文件和生成的图表
+business_card/res/datafile/*.xlsx
+business_card/res/datafile/*.html
