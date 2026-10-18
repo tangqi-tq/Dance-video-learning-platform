@@ -591,16 +591,28 @@ class MainWindow(QMainWindow):
                 try:
                     engine = get_engine()
                     with engine.connect() as conn:
-                        conn.execute(text(f"""
-                            UPDATE students 
-                            SET name = '{name_input.text()}',
-                                nickname = '{nickname_input.text()}',
-                                mobile = '{mobile_input.text()}',
-                                wechat = '{wechat_input.text()}',
-                                dance_level = '{level_combo.currentText()}',
-                                dance_type = '{dance_combo.currentText()}'
-                            WHERE id = {student_id}
-                        """))
+                        conn.execute(
+                            text("""
+                                UPDATE students 
+                                SET name = :name,
+                                    nickname = :nickname,
+                                    mobile = :mobile,
+                                    wechat = :wechat,
+                                    dance_level = :dance_level,
+                                    dance_type = :dance_type
+                                WHERE id = :student_id
+                            """),
+                            {
+                                'name': name_input.text(),
+                                'nickname': nickname_input.text(),
+                                'mobile': mobile_input.text(),
+                                'wechat': wechat_input.text(),
+                                'dance_level': level_combo.currentText(),
+                                'dance_type': dance_combo.currentText(),
+                                'student_id': int(student_id),
+                            }
+                        )
+                        conn.commit()
                         conn.commit()
                     QMessageBox.information(self, "成功", "学员信息修改成功！")
                     self.show_students()
@@ -623,7 +635,11 @@ class MainWindow(QMainWindow):
             try:
                 engine = get_engine()
                 with engine.connect() as conn:
-                    conn.execute(text(f"DELETE FROM students WHERE id = {student_id}"))
+                    conn.execute(
+                        text("DELETE FROM students WHERE id = :student_id"),
+                        {'student_id': int(student_id)}
+                    )
+                    conn.commit()
                     conn.commit()
                 QMessageBox.information(self, "成功", "删除成功！")
                 self.show_students()
@@ -803,17 +819,27 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.Accepted and name_input.text().strip():
             try:
                 engine = get_engine()
-                price = float(price_input.text()) if price_input.text() else "NULL"
                 with engine.connect() as conn:
-                    conn.execute(text(f"""
-                        UPDATE courses 
-                        SET name = '{name_input.text()}',
-                            dance_type = '{dance_combo.currentText()}',
-                            level = '{level_combo.currentText()}',
-                            price = {price if price != "NULL" else 'NULL'},
-                            teacher = '{teacher_input.text()}'
-                        WHERE id = {course_id}
-                    """))
+                    price = float(price_input.text()) if price_input.text().strip() else None
+                    conn.execute(
+                        text("""
+                            UPDATE courses 
+                            SET name = :name,
+                                dance_type = :dance_type,
+                                level = :level,
+                                price = :price,
+                                teacher = :teacher
+                            WHERE id = :course_id
+                        """),
+                        {
+                            'name': name_input.text(),
+                            'dance_type': dance_combo.currentText(),
+                            'level': level_combo.currentText(),
+                            'price': price,  # None 会被绑定为 SQL NULL
+                            'teacher': teacher_input.text(),
+                            'course_id': int(course_id),
+                        }
+                    )
                     conn.commit()
                 QMessageBox.information(self, "成功", "课程修改成功！")
                 self.show_courses()
@@ -834,8 +860,14 @@ class MainWindow(QMainWindow):
             try:
                 engine = get_engine()
                 with engine.connect() as conn:
-                    conn.execute(text(f"DELETE FROM videos WHERE course_id = {course_id}"))
-                    conn.execute(text(f"DELETE FROM courses WHERE id = {course_id}"))
+                    conn.execute(
+                        text("DELETE FROM videos WHERE course_id = :course_id"),
+                        {'course_id': int(course_id)}
+                    )
+                    conn.execute(
+                        text("DELETE FROM courses WHERE id = :course_id"),
+                        {'course_id': int(course_id)}
+                    )
                     conn.commit()
                 QMessageBox.information(self, "成功", "删除成功！")
                 self.show_courses()
@@ -940,7 +972,11 @@ class MainWindow(QMainWindow):
         course_id = self.course_combo.currentData()
         try:
             engine = get_engine()
-            df = pd.read_sql(f"SELECT * FROM videos WHERE course_id = {course_id} ORDER BY sort_order", engine)
+            df = pd.read_sql(
+                text("SELECT * FROM videos WHERE course_id = :course_id ORDER BY sort_order"),
+                engine,
+                params={'course_id': course_id}
+            )
 
             self.videos_table.setRowCount(len(df))
             for i in range(len(df)):
@@ -1087,13 +1123,21 @@ class MainWindow(QMainWindow):
                 duration = int(duration_input.text()) if duration_input.text() else 0
                 sort_order = int(sort_input.text()) if sort_input.text() else 0
                 with engine.connect() as conn:
-                    conn.execute(text(f"""
-                        UPDATE videos 
-                        SET title = '{title_input.text()}',
-                            duration = {duration},
-                            sort_order = {sort_order}
-                        WHERE id = {video_id}
-                    """))
+                    conn.execute(
+                        text("""
+                            UPDATE videos 
+                            SET title = :title,
+                                duration = :duration,
+                                sort_order = :sort_order
+                            WHERE id = :video_id
+                        """),
+                        {
+                            'title': title_input.text(),
+                            'duration': duration,
+                            'sort_order': sort_order,
+                            'video_id': int(video_id),
+                        }
+                    )
                     conn.commit()
                 QMessageBox.information(self, "成功", "视频修改成功！")
                 self.load_videos_by_course()
@@ -1115,7 +1159,10 @@ class MainWindow(QMainWindow):
             try:
                 engine = get_engine()
                 with engine.connect() as conn:
-                    conn.execute(text(f"DELETE FROM videos WHERE id = {video_id}"))
+                    conn.execute(
+                        text("DELETE FROM videos WHERE id = :video_id"),
+                        {'video_id': int(video_id)}
+                    )
                     conn.commit()
                 QMessageBox.information(self, "成功", "删除成功！")
                 self.load_videos_by_course()
@@ -1165,30 +1212,43 @@ class MainWindow(QMainWindow):
             engine = get_engine()
             with engine.connect() as conn:
                 # 检查是否已有记录
-                result = conn.execute(text(f"""
-                    SELECT id, watch_count FROM learning_record 
-                    WHERE student_id = {student_id} AND video_id = {video_id}
-                """))
+                params = {
+                    'student_id': int(student_id),
+                    'video_id': int(video_id),
+                    'watched_seconds': video_duration if video_duration else 0,
+                }
+                result = conn.execute(
+                    text("""
+                        SELECT id, watch_count FROM learning_record 
+                        WHERE student_id = :student_id AND video_id = :video_id
+                    """),
+                    params
+                )
                 existing = result.fetchone()
 
                 if existing:
-                    # 更新现有记录
-                    conn.execute(text(f"""
-                        UPDATE learning_record 
-                        SET watch_count = watch_count + 1,
-                            watched_seconds = {video_duration if video_duration else 0},
-                            is_completed = 1,
-                            last_watch_time = NOW()
-                        WHERE student_id = {student_id} AND video_id = {video_id}
-                    """))
+                    conn.execute(
+                        text("""
+                            UPDATE learning_record 
+                            SET watch_count = watch_count + 1,
+                                watched_seconds = :watched_seconds,
+                                is_completed = 1,
+                                last_watch_time = NOW()
+                            WHERE student_id = :student_id AND video_id = :video_id
+                        """),
+                        params
+                    )
                 else:
-                    # 创建新记录
-                    conn.execute(text(f"""
-                        INSERT INTO learning_record (student_id, video_id, watched_seconds, is_completed, last_watch_time, watch_count)
-                        VALUES ({student_id}, {video_id}, {video_duration if video_duration else 0}, 1, NOW(), 1)
-                    """))
+                    conn.execute(
+                        text("""
+                            INSERT INTO learning_record
+                                (student_id, video_id, watched_seconds, is_completed, last_watch_time, watch_count)
+                            VALUES
+                                (:student_id, :video_id, :watched_seconds, 1, NOW(), 1)
+                        """),
+                        params
+                    )
                 conn.commit()
-
             # 刷新学习记录显示
             if hasattr(self, 'load_learning_records'):
                 self.load_learning_records()
@@ -1286,13 +1346,13 @@ class MainWindow(QMainWindow):
         student_id = self.student_combo.currentData()
         try:
             engine = get_engine()
-            sql = f"""
-            SELECT lr.video_id, v.title, lr.watched_seconds, lr.is_completed, lr.watch_count
-            FROM learning_record lr
-            JOIN videos v ON lr.video_id = v.id
-            WHERE lr.student_id = {student_id}
-            """
-            df = pd.read_sql(sql, engine)
+            sql = text("""
+                SELECT lr.video_id, v.title, lr.watched_seconds, lr.is_completed, lr.watch_count
+                FROM learning_record lr
+                JOIN videos v ON lr.video_id = v.id
+                WHERE lr.student_id = :student_id
+            """)
+            df = pd.read_sql(sql, engine, params={'student_id': student_id})
 
             self.learning_table.setRowCount(len(df))
             for i in range(len(df)):
@@ -1408,7 +1468,11 @@ class MainWindow(QMainWindow):
         student_id = self.assignment_student_combo.currentData()
         try:
             engine = get_engine()
-            df = pd.read_sql(f"SELECT * FROM assignments WHERE student_id = {student_id} ORDER BY id DESC", engine)
+            df = pd.read_sql(
+                text("SELECT * FROM assignments WHERE student_id = :student_id ORDER BY id DESC"),
+                engine,
+                params={'student_id': student_id}
+            )
 
             self.assignments_table.setRowCount(len(df))
             for i in range(len(df)):
@@ -1573,7 +1637,11 @@ class MainWindow(QMainWindow):
 
         try:
             engine = get_engine()
-            df = pd.read_sql(f"SELECT * FROM assignments WHERE id = {assignment_id}", engine)
+            df = pd.read_sql(
+                text("SELECT * FROM assignments WHERE id = :assignment_id"),
+                engine,
+                params={'assignment_id': assignment_id}
+            )
             if len(df) == 0:
                 return
             row = df.iloc[0]
@@ -1618,13 +1686,21 @@ class MainWindow(QMainWindow):
             try:
                 engine = get_engine()
                 with engine.connect() as conn:
-                    conn.execute(text(f"""
-                        UPDATE assignments 
-                        SET score = {score_slider.value()},
-                            teacher_comment = '{comment_input.toPlainText()}',
-                            status = '{status_combo.currentText()}'
-                        WHERE id = {assignment_id}
-                    """))
+                    conn.execute(
+                        text("""
+                            UPDATE assignments 
+                            SET score = :score,
+                                teacher_comment = :teacher_comment,
+                                status = :status
+                            WHERE id = :assignment_id
+                        """),
+                        {
+                            'score': score_slider.value(),
+                            'teacher_comment': comment_input.toPlainText(),
+                            'status': status_combo.currentText(),
+                            'assignment_id': assignment_id,
+                        }
+                    )
                     conn.commit()
                 QMessageBox.information(self, "成功", "评分和点评已保存！")
                 self.load_assignments()
